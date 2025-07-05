@@ -39,7 +39,7 @@ def fetch_investing_news():
             currency = row["data-ev-curr"]
             time_str = row["data-event-datetime"]
 
-            if impact == "3" and currency in ALLOWED_CURRENCIES:
+            if impact == "3":
                 dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
                 dt = pytz.utc.localize(dt).astimezone(CAIRO)
 
