@@ -3,12 +3,14 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import pytz
+import os
 
 app = Flask(__name__)
 
 # إعداد المنطقة الزمنية حسب بلدك
 CAIRO = pytz.timezone("Africa/Cairo")
 
+# ====== دالة جلب الأخبار من Investing.com ======
 def fetch_investing_news():
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -41,6 +43,7 @@ def fetch_investing_news():
 
     return results
 
+# ====== API Endpoint ======
 @app.route("/news")
 def get_news():
     try:
@@ -48,3 +51,8 @@ def get_news():
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ====== تشغيل التطبيق على Render ======
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
