@@ -3,43 +3,42 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import pytz
-import os
 
 app = Flask(__name__)
 
-# المنطقة الزمنية المطلوبة
 CAIRO = pytz.timezone("Africa/Cairo")
 
-# جلب الأخبار من موقع Investing
-def fetch_investing_news():
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    url = "https://www.investing.com/economic-calendar/"
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, "html.parser")
+def fetch_forex_factory_news():
+    url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "xml")
 
     results = []
 
-    rows = soup.find_all("tr", {"class": "js-event-item"})
+    items = soup.find_all("event")
 
-    for row in rows:
+    for item in items:
         try:
-            impact = row["data-impact"]
-            currency = row["data-ev-curr"]
-            time_str = row["data-event-datetime"]
+            impact = item.impact.text.strip()
+            currency = item.currency.text.strip()
+            date_str = item.date.text.strip()
+            time_str = item.time.text.strip()
 
-            if impact == "3":  # فقط الأخبار عالية التأثير
-                dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-                dt = pytz.utc.localize(dt).astimezone(CAIRO)
+            if impact.lower() != "high":
+                continue  # فقط الأخبار ذات التأثير العالي
 
-                results.append({
-                    "time": dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "currency": currency,
-                    "impact": "High"
-                })
-        except Exception:
+            # تكوين التاريخ والوقت الكامل
+            full_str = f"{date_str} {time_str}"
+            dt = datetime.strptime(full_str, "%b %d %Y %I:%M%p")
+            dt = pytz.utc.localize(dt).astimezone(CAIRO)
+
+            results.append({
+                "time": dt.strftime("%Y-%m-%d %H:%M:%S"),
+                "currency": currency,
+                "impact": impact
+            })
+
+        except Exception as e:
             continue
 
     return results
@@ -47,11 +46,10 @@ def fetch_investing_news():
 @app.route("/news")
 def get_news():
     try:
-        data = fetch_investing_news()
+        data = fetch_forex_factory_news()
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
