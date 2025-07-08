@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import requests
 from datetime import datetime, timedelta
 import pytz
@@ -8,6 +8,7 @@ import json
 app = Flask(__name__)
 CAIRO = pytz.timezone("Africa/Cairo")
 CACHE_FILE = "cached_news.json"
+SECRET_KEY = "my_secret_123"  # ← غيّر هذا المفتاح
 
 def is_cache_fresh():
     if not os.path.exists(CACHE_FILE):
@@ -74,6 +75,9 @@ def fetch_from_ff_json():
 
 @app.route("/news")
 def get_news():
+    if not is_cache_fresh() and os.path.exists(CACHE_FILE):
+        os.remove(CACHE_FILE)
+
     if is_cache_fresh():
         data = load_cache()
     else:
@@ -86,6 +90,32 @@ def get_news():
         "data": data,
         "server_time": datetime.now(CAIRO).strftime("%Y.%m.%d %H:%M:%S")
     }), 200
+
+@app.route("/refresh")
+def refresh_cache():
+    user_key = request.args.get("key")
+    if user_key != SECRET_KEY:
+        return jsonify({"status": "unauthorized", "message": "Invalid or missing API key."}), 401
+
+    try:
+        # حذف الملف إذا كان موجود
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
+        
+        # جلب الأخبار وتخزينها
+        data = fetch_from_ff_json()
+        save_cache(data)
+
+        return jsonify({
+            "status": "success",
+            "message": "Cache refreshed and data reloaded.",
+            "count": len(data),
+            "data": data,
+            "server_time": datetime.now(CAIRO).strftime("%Y.%m.%d %H:%M:%S")
+        }), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to refresh cache: {e}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
