@@ -21,7 +21,7 @@ def fetch_forex_factory_news():
         
         soup = BeautifulSoup(response.content, "xml")
         results = []
-        now = datetime.now(pytz.utc)
+        now = datetime.now(CAIRO)
         week_later = now + timedelta(days=7)
 
         for item in soup.find_all("event"):
@@ -39,7 +39,7 @@ def fetch_forex_factory_news():
                 dt = pytz.utc.localize(dt).astimezone(CAIRO)
                 
                 # Only include upcoming news (within 7 days)
-                if dt.tzinfo.localize(dt) < now or dt > week_later:
+                if dt < now or dt > week_later:
                     continue
 
                 results.append({
