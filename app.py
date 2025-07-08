@@ -7,21 +7,22 @@ import json
 
 app = Flask(__name__)
 
+# المنطقة الزمنية المطلوبة
 CAIRO = pytz.timezone("Africa/Cairo")
 
 def fetch_forex_factory_news():
     try:
         url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0'
         }
-        
+
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        
+
         soup = BeautifulSoup(response.content, "xml")
         results = []
-        now = datetime.now(CAIRO)
+        now = datetime.now(pytz.utc)
         week_later = now + timedelta(days=7)
 
         for item in soup.find_all("event"):
@@ -34,16 +35,17 @@ def fetch_forex_factory_news():
                 date_str = item.date.text.strip()
                 time_str = item.time.text.strip()
 
-                # Parse and convert to Cairo time
+                # مثال: Jul 08 2025 6:30am
                 dt = datetime.strptime(f"{date_str} {time_str}", "%b %d %Y %I:%M%p")
-                dt = pytz.utc.localize(dt).astimezone(CAIRO)
-                
-                # Only include upcoming news (within 7 days)
-                if dt < now or dt > week_later:
+                dt_utc = pytz.utc.localize(dt)
+                dt_cairo = dt_utc.astimezone(CAIRO)
+
+                # فقط الأخبار المستقبلية خلال 7 أيام
+                if dt_utc < now or dt_utc > week_later:
                     continue
 
                 results.append({
-                    "time": dt.strftime("%Y.%m.%d %H:%M"),  # MT4 compatible format
+                    "time": dt_cairo.strftime("%Y.%m.%d %H:%M"),  # تنسيق MT4
                     "currency": currency,
                     "title": item.title.text.strip() if item.title else "",
                     "impact": impact
@@ -53,7 +55,6 @@ def fetch_forex_factory_news():
                 app.logger.error(f"Error processing event: {e}")
                 continue
 
-        # Sort by time
         results.sort(key=lambda x: x["time"])
         return results
 
@@ -67,8 +68,8 @@ def get_news():
         data = fetch_forex_factory_news()
         return jsonify({
             "status": "success",
-            "data": data,
             "count": len(data),
+            "data": data,
             "server_time": datetime.now(CAIRO).strftime("%Y.%m.%d %H:%M:%S")
         })
     except Exception as e:
