@@ -47,8 +47,9 @@ def fetch_from_ff_json():
 
         for ev in events:
             try:
-                if ev.get("impact", "").lower() != "high":
-                    continue
+                impact = ev.get("impact", "").lower()
+                if impact not in ["high", "medium", "low"]:
+                    continue  # تجاهل أي قيم غير معروفة
 
                 dt = datetime.fromisoformat(ev["date"])
                 if not dt.tzinfo:
@@ -62,7 +63,7 @@ def fetch_from_ff_json():
                     "time": dt_cairo.strftime("%Y.%m.%d %H:%M"),
                     "currency": ev.get("country", ""),
                     "title": ev.get("title", ""),
-                    "impact": "high"
+                    "impact": impact
                 })
             except Exception:
                 continue
@@ -72,6 +73,7 @@ def fetch_from_ff_json():
     except Exception as e:
         app.logger.error("Fetch error: %s", e)
         return []
+
 
 @app.route("/news")
 def get_news():
