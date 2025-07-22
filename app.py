@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
+from dateutil import parser
 import pytz
 import os
 import json
@@ -8,7 +9,7 @@ import json
 app = Flask(__name__)
 CAIRO = pytz.timezone("Africa/Cairo")
 CACHE_FILE = "cached_news.json"
-SECRET_KEY = "my_secret_123"  # ← غيّر هذا المفتاح
+SECRET_KEY = "my_secret_123"  # ← غيّره بمفتاح سري خاص بك
 
 def is_cache_fresh():
     if not os.path.exists(CACHE_FILE):
@@ -49,9 +50,9 @@ def fetch_from_ff_json():
             try:
                 impact = ev.get("impact", "").lower()
                 if impact not in ["high", "medium", "low"]:
-                    continue  # تجاهل أي قيم غير معروفة
+                    continue
 
-                dt = datetime.fromisoformat(ev["date"])
+                dt = parser.isoparse(ev["date"])  # ← يدعم التوقيت بصيغة -04:00
                 if not dt.tzinfo:
                     dt = pytz.utc.localize(dt)
 
@@ -65,7 +66,7 @@ def fetch_from_ff_json():
                     "title": ev.get("title", ""),
                     "impact": impact
                 })
-            except Exception:
+            except Exception as e:
                 continue
 
         results.sort(key=lambda x: x["time"])
@@ -73,7 +74,6 @@ def fetch_from_ff_json():
     except Exception as e:
         app.logger.error("Fetch error: %s", e)
         return []
-
 
 @app.route("/news")
 def get_news():
@@ -100,11 +100,9 @@ def refresh_cache():
         return jsonify({"status": "unauthorized", "message": "Invalid or missing API key."}), 401
 
     try:
-        # حذف الملف إذا كان موجود
         if os.path.exists(CACHE_FILE):
             os.remove(CACHE_FILE)
-        
-        # جلب الأخبار وتخزينها
+
         data = fetch_from_ff_json()
         save_cache(data)
 
